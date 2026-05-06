@@ -1,0 +1,26 @@
+[
+  {
+    "threads": 1,
+    "tok_s": 10.62
+  },
+  {
+    "threads": 2,
+    "tok_s": 17.88
+  },
+  {
+    "threads": 3,
+    "tok_s": 22.68
+  },
+  {
+    "threads": 6,
+    "tok_s": 25.87
+  },
+  {
+    "threads": 12,
+    "tok_s": 17.18
+  },
+  {
+    "threads": "GPU(ngl=99)",
+    "tok_s": 82.51
+  }
+]
