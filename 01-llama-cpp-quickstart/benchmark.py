@@ -20,7 +20,6 @@ except ImportError:
     print("ERROR: llama_cpp not installed. Run the platform setup script.", file=sys.stderr)
     sys.exit(1)
 
-
 PROMPTS = [
     "Explain TTFT and TPOT in one sentence each.",
     "Write a haiku about KV cache fragmentation.",

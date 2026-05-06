@@ -4,116 +4,96 @@
 
 ---
 
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+**Họ Tên:** Doumaa
+**Cohort:** A20-K1
+**Ngày submit:** 2026-05-06
 
 ---
 
 ## 1. Hardware spec (từ `00-setup/detect-hardware.py`)
 
-> Paste output của `python 00-setup/detect-hardware.py` vào đây, hoặc điền thủ công:
+- **OS:** Windows 11
+- **CPU:** Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
+- **Cores:** 6 physical / 12 logical
+- **CPU extensions:** AVX2, FMA, BMI2
+- **RAM:** 15.8 GB
+- **Accelerator:** NVIDIA GeForce GTX 1650 Ti with Max-Q Design, 4096 MiB
+- **llama.cpp backend đã chọn:** CUDA (llama-cpp-python) / Vulkan (llama-server.exe WinGet binary)
+- **Recommended model tier:** Qwen2.5-1.5B-Instruct (Q4_K_M)
 
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H / ...>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 8GB / Apple Metal / AMD ROCm / Vulkan / CPU only>_
-- **llama.cpp backend đã chọn:** _<CUDA / Metal / Vulkan / CPU>_
-- **Recommended model tier:** _<TinyLlama-1.1B / Qwen2.5-1.5B / Llama-3.2-3B / Qwen2.5-7B>_
-
-**Setup story** (≤ 80 chữ): những gì cần thay đổi để lab chạy được trên máy bạn (vd: dùng WSL2, install CUDA Toolkit, fall back sang Vulkan vì ROCm phiên bản kén, tắt antivirus để pip install nhanh hơn, v.v.):
-
-_Answer here._
+**Setup story**: Trên Windows, `llama-cpp-python` prebuilt CPU wheel cài qua `uv` do venv không có pip. WinGet binary `llama-server.exe` dùng Vulkan backend thay vì CUDA vì build không kèm CUDA DLL — tuy nhiên Vulkan vẫn cho 82.5 tok/s trên GTX 1650 Ti. Unicode encoding (ký tự `─`) cần `PYTHONUTF8=1` để benchmark.py chạy được.
 
 ---
 
 ## 2. Track 01 — Quickstart numbers (từ `benchmarks/01-quickstart-results.md`)
 
-> Paste bảng từ `benchmarks/01-quickstart-results.md` xuống đây (auto-generated bởi `python 01-llama-cpp-quickstart/benchmark.py`).
-
 | Model | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode rate (tok/s) |
 |---|--:|--:|--:|--:|--:|
-| (Q4_K_M) | | | | | |
-| (Q2_K)   | | | | | |
+| qwen2.5-1.5b-instruct-q4_k_m.gguf | 2344 | 144 / 217 | 46.0 / 79.9 | 3018 / 4024 / 4549 | 21.7 |
+| qwen2.5-1.5b-instruct-q2_k.gguf   | 418  | 168 / 193 | 32.4 / 35.8 | 2202 / 2430 / 2481 | 30.8 |
 
-**Một quan sát** (≤ 50 chữ): Q4_K_M vs Q2_K trên máy bạn — số liệu nói gì? Quality đáng đánh đổi không?
-
-_Answer here._
+**Một quan sát**: Q2_K load nhanh hơn 5.6× (418ms vs 2344ms) và decode nhanh hơn 1.4× (30.8 vs 21.7 tok/s) vì file nhỏ hơn nên ít data phải đẩy qua memory bus. Tuy nhiên Q4_K_M cho output chất lượng cao hơn rõ rệt — đáng đánh đổi tốc độ khi RAM còn đủ.
 
 ---
 
 ## 3. Track 02 — llama-server load test
 
-> Chạy 2 lần locust ở concurrency 10 và 50, paste tóm tắt bên dưới.
-
 | Concurrency | Total RPS | TTFB P50 (ms) | E2E P95 (ms) | E2E P99 (ms) | Failures |
 |--:|--:|--:|--:|--:|--:|
-| 10 | | | | | |
-| 50 | | | | | |
+| 10 | 0.9 | 8900 | 13000 | 14000 | 0 |
+| 50 | 0.9 | 16000 | 29000 | 31000 | 0 |
 
-**KV-cache observation** (từ `record-metrics.py`): peak `llamacpp:kv_cache_usage_ratio` ở concurrency 50 = _<0.XX>_, nghĩa là …
-
-_Answer here._
+**KV-cache observation**: `llamacpp:kv_cache_usage_ratio` không được expose trong WinGet build này. Tuy nhiên từ `record-metrics.py`, `n_busy_slots_per_decode` đạt peak 3.80/4 = **~0.95** — tức 95% capacity của 4 parallel decode slots bị chiếm ở concurrency 10. Cùng lúc `requests_deferred` tăng lên 45 khi chạy u=50, xác nhận KV cache và compute slots đã bão hoà. Đây là bottleneck thực sự: server chỉ có 4 decode slots song song, nên 50 concurrent users phải queue.
 
 ---
 
 ## 4. Track 03 — Milestone integration
 
-- **N16 (Cloud/IaC):** _<piece you connected — k3d cluster / GCP project / docker-compose / "stub: localhost only">_
-- **N17 (Data pipeline):** _<piece — Airflow DAG / batch job / "stub: in-memory dict">_
-- **N18 (Lakehouse):** _<piece — Delta Lake table / Iceberg / "stub: SQLite">_
-- **N19 (Vector + Feature Store):** _<piece — Qdrant index / Feast / "stub: TOY_DOCS">_
+- **N16 (Cloud/IaC):** stub — pipeline chạy localhost only, không có k8s/GCP
+- **N17 (Data pipeline):** stub — in-memory TOY_DOCS thay vì Airflow DAG
+- **N18 (Lakehouse):** stub — không có Delta Lake/Iceberg, docs hardcoded trong Python
+- **N19 (Vector + Feature Store):** stub — keyword overlap scoring thay vì vector index (Qdrant/Feast)
 
-**Nơi tốn nhiều ms nhất** trong pipeline (đo bằng `time.perf_counter` trong `pipeline.py`):
+**Nơi tốn nhiều ms nhất** trong pipeline:
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llama-server: _<ms>_
+- embed: 0.0 ms (stub — keyword match, không có embedding model)
+- retrieve: 0.0 ms (in-memory dict lookup)
+- llama-server: ~4069 ms trung bình (query 1: 5471ms, query 2: 3118ms, query 3: 3680ms)
 
-**Reflection** (≤ 60 chữ): bottleneck nằm ở đâu? Có khớp với kỳ vọng không?
-
-_Answer here._
+**Reflection**: Bottleneck hoàn toàn nằm ở llama-server (>99.9% thời gian). Khớp kỳ vọng — với stub retrieval thì không có I/O hay embedding cost. Nếu thay bằng vector store thật (Qdrant + sentence-transformer), embed và retrieve sẽ thêm ~50-200ms nhưng llama-server vẫn dominate ở mức giây.
 
 ---
 
 ## 5. Bonus — The single change that mattered most
 
-> **Most important section.** Pick **một** thay đổi từ bonus track (build flag, thread sweep, quant pick, GPU offload, KV-cache quantization, speculative decoding, bất cứ challenge nào trong `BONUS-llama-cpp-optimization/CHALLENGES.md`) đã tạo ra speedup lớn nhất trên máy bạn.
+**Change:** Dùng GPU offload (Vulkan, `--n-gpu-layers 99`) thay vì CPU-only
 
-**Change:** _<vd: rebuild llama.cpp với `-DGGML_NATIVE=ON -DGGML_BLAS=ON`; vd: hạ `-t` từ 12 xuống 6; vd: bật Metal trên M2>_
-
-**Before vs after** (paste 2-3 dòng từ sweep output):
+**Before vs after** (từ bonus thread sweep):
 
 ```
-before: <số liệu>
-after:  <số liệu>
-speedup: ~<X.Y>×
+before: CPU best   t=6  → 25.9 tok/s
+after:  Vulkan GPU ngl=99 → 82.5 tok/s
+speedup: ~3.2×
 ```
 
-**Tại sao nó work** (1–2 đoạn ngắn — đây là phần grader đọc kỹ nhất):
-
-_Giải thích như đang nói với một bạn cùng lớp đang ngồi cạnh. Tránh "vibes-based" reasoning — bám vào mô hình mental của hardware (memory bandwidth? compute? cache?). Nếu kết quả khác kỳ vọng từ deck, nói rõ — đó là phần grader thưởng điểm._
+**Tại sao nó work**: LLM decode là *memory-bandwidth-bound* — mỗi token cần đọc toàn bộ weight của model từ bộ nhớ. CPU của i7-10750H có ~45 GB/s memory bandwidth, trong khi GTX 1650 Ti có ~192 GB/s GDDR6 bandwidth — gấp 4.3×. Lý thuyết dự đoán ~4× speedup, thực tế đo được 3.2× (hơi thấp hơn vì Vulkan overhead và PCIe transfer khi load model). Thread sweep xác nhận điều này: trên CPU, thêm thread từ 6→12 (hyperthreading) lại *chậm hơn* (25.9 → 17.2 tok/s) vì các thread tranh nhau memory bandwidth trên cùng memory controller — thêm core không giúp gì khi bottleneck là băng thông, không phải số lượng compute unit.
 
 ---
 
 ## 6. (Optional) Điều ngạc nhiên nhất
 
-_(1–2 câu — không bắt buộc, nhưng người grader đọc tất cả)_
-
-_Answer here._
+WinGet `llama-server.exe` tự chọn Vulkan thay vì CUDA dù máy có GTX 1650 Ti — build này không kèm CUDA DLL. Điều bất ngờ là Vulkan cho 82.5 tok/s, gần bằng CUDA benchmark (benchmark.py với llama-cpp-python CUDA: 21.7 tok/s decode, nhưng đó là P50 với max_tokens=64 — không so sánh trực tiếp được vì llama-bench đo steady-state decode). Vulkan hoạt động tốt hơn kỳ vọng trên NVIDIA hardware.
 
 ---
 
 ## 7. Self-graded checklist
 
-- [ ] `hardware.json` đã commit
-- [ ] `models/active.json` đã commit (hoặc paste path snapshot vào section 1)
-- [ ] `benchmarks/01-quickstart-results.md` đã commit
-- [ ] `benchmarks/02-server-results.md` (hoặc CSV từ `record-metrics.py`) đã commit
-- [ ] `benchmarks/bonus-*.md` đã commit (ít nhất 1 sweep)
-- [ ] Ít nhất 6 screenshots trong `submission/screenshots/` (xem `submission/screenshots/README.md`)
+- [x] `hardware.json` đã commit
+- [x] `models/active.json` đã commit (Qwen2.5-1.5B-Instruct Q4_K_M + Q2_K)
+- [x] `benchmarks/01-quickstart-results.md` đã commit
+- [x] `benchmarks/02-server-results.md` + `02-server-metrics.csv` đã commit
+- [x] `benchmarks/bonus-thread-sweep.md` đã commit (thread sweep CPU vs GPU)
+- [x] 7 screenshots trong `submission/screenshots/` (01–06 + 09-pipeline)
 - [ ] `make verify` exit 0 (chạy ngay trước khi push)
 - [ ] Repo trên GitHub ở chế độ **public**
 - [ ] Đã paste public repo URL vào VinUni LMS
