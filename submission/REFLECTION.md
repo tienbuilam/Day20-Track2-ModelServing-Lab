@@ -4,7 +4,7 @@
 
 ---
 
-**Họ Tên:** Doumaa
+**Họ Tên:** Bùi Lâm Tiến
 **Cohort:** A20-K1
 **Ngày submit:** 2026-05-06
 
@@ -94,9 +94,9 @@ WinGet `llama-server.exe` tự chọn Vulkan thay vì CUDA dù máy có GTX 1650
 - [x] `benchmarks/02-server-results.md` + `02-server-metrics.csv` đã commit
 - [x] `benchmarks/bonus-thread-sweep.md` đã commit (thread sweep CPU vs GPU)
 - [x] 7 screenshots trong `submission/screenshots/` (01–06 + 09-pipeline)
-- [ ] `make verify` exit 0 (chạy ngay trước khi push)
-- [ ] Repo trên GitHub ở chế độ **public**
-- [ ] Đã paste public repo URL vào VinUni LMS
+- [x] `make verify` exit 0 (chạy ngay trước khi push)
+- [x] Repo trên GitHub ở chế độ **public**
+- [x] Đã paste public repo URL vào VinUni LMS
 
 ---
 
