@@ -14,6 +14,6 @@ BONUS-llama-cpp-optimization/llama.cpp/
 
 # Locust raw CSV — screenshot is the evidence, not the CSV
 locust_*.csv
-
+.claude/
 # NOTE: hardware.json AND benchmarks/*.md / *.json files are TRACKED on purpose.
 # They are the evidence the rubric grades against. See rubric.md.
